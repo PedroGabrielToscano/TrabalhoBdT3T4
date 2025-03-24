@@ -1,0 +1,102 @@
+package app;
+
+import models.Fatura;
+import models.Fornecedor;
+import models.MotivoFatura;
+import services.FaturaService;
+
+import java.sql.SQLException;
+import java.time.LocalDate;
+import java.time.format.DateTimeFormatter;
+import java.util.List;
+import java.util.Scanner;
+
+public class Main {
+    public static void main(String[] args) {
+        Scanner sc = new Scanner(System.in);
+        FaturaService faturaService = new FaturaService();
+
+        System.out.println("=== TESTE DE INSERÇÃO E CONSULTA DE FATURA ===");
+        System.out.print("Deseja inserir uma nova fatura? (S/N): ");
+        String resposta = sc.nextLine();
+
+        if (resposta.equalsIgnoreCase("S")) {
+            // Leitura dos dados para a nova fatura
+            System.out.print("Informe o ID do fornecedor: ");
+            int idFornecedor = sc.nextInt();
+            sc.nextLine(); // consumir a quebra de linha
+
+            System.out.print("Informe o valor da fatura: ");
+            double valorFatura = sc.nextDouble();
+            sc.nextLine();
+
+            System.out.print("Informe o ID do motivo da fatura: ");
+            int idMotivo = sc.nextInt();
+            sc.nextLine();
+
+            // Para simplificar, usamos datas fixas:
+            LocalDate dtVencimento = LocalDate.now().plusDays(30); // vencimento 30 dias a partir de hoje
+            LocalDate dtLancamento = LocalDate.now();
+
+            // Criar objeto Fatura e seus objetos dependentes
+            Fatura novaFatura = new Fatura();
+            Fornecedor fornecedor = new Fornecedor();
+            fornecedor.setIdFornecedor(idFornecedor);
+            novaFatura.setFornecedor(fornecedor);
+            novaFatura.setValorFatura(valorFatura);
+
+            MotivoFatura motivo = new MotivoFatura();
+            motivo.setIdMotivo(idMotivo);
+            // Opcional: você pode definir o texto do motivo se já o tiver
+            motivo.setMotivo("Motivo " + idMotivo);
+            novaFatura.setMotivoFatura(motivo);
+
+            novaFatura.setDtVencimento(dtVencimento);
+            novaFatura.setDtLancamento(dtLancamento);
+
+            // Inserir a nova fatura e atualizar o saldo do fornecedor
+            try {
+                faturaService.inserirFatura(novaFatura);
+                System.out.println("Fatura inserida com sucesso! ID gerado: " + novaFatura.getIdFatura());
+            } catch (SQLException e) {
+                System.err.println("Erro ao inserir a fatura: " + e.getMessage());
+            }
+        }
+
+        // Listar todas as faturas com saldo acumulado
+        System.out.println("\n=== LISTA DE FATURAS ===");
+        try {
+            List<Fatura> faturas = faturaService.listarTodasAsFaturas();
+            if (faturas.isEmpty()) {
+                System.out.println("Não há faturas cadastradas.");
+            } else {
+                double saldoAcumulado = 0;
+                DateTimeFormatter formatter = DateTimeFormatter.ofPattern("dd/MM/yyyy");
+                System.out.printf("%-10s | %-20s | %-12s | %-8s | %-8s%n",
+                        "Fatura", "Motivo", "Vencimento", "Valor", "Saldo");
+                System.out.println("---------------------------------------------------------------");
+                for (Fatura f : faturas) {
+                    saldoAcumulado += f.getValorFatura();
+                    System.out.printf("%-10d | %-20s | %-12s | %-8.2f | %-8.2f%n",
+                            f.getIdFatura(),
+                            f.getMotivoFatura().getMotivo(),
+                            f.getDtVencimento().format(formatter),
+                            f.getValorFatura(),
+                            saldoAcumulado);
+                }
+            }
+        } catch (SQLException e) {
+            System.err.println("Erro ao listar as faturas: " + e.getMessage());
+        }
+
+        System.out.print("\nDeseja continuar? (S/N): ");
+        String continuar = sc.nextLine();
+        if (continuar.equalsIgnoreCase("S")) {
+            System.out.println("Reinicie o programa para realizar novas operações.");
+        } else {
+            System.out.println("Programa encerrado.");
+        }
+
+        sc.close();
+    }
+}

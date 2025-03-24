@@ -1,0 +1,149 @@
+package app;
+
+import models.Bairro;
+import models.Cidade;
+import models.Endereco;
+import models.Logradouro;
+import models.TipoLogradouro;
+import models.UnidadeFederacao;
+import services.BairroService;
+import services.CidadeService;
+import services.EnderecoService;
+import services.LogradouroService;
+import services.TipoLogradouroService;
+import services.UnidadeFederacaoService;
+
+import java.sql.SQLException;
+import java.util.List;
+import java.util.Scanner;
+
+public class Main {
+    public static void main(String[] args) {
+        Scanner sc = new Scanner(System.in);
+
+        // Services necessários
+        UnidadeFederacaoService ufService = new UnidadeFederacaoService();
+        CidadeService cidadeService = new CidadeService();
+        BairroService bairroService = new BairroService();
+        TipoLogradouroService tipoLogService = new TipoLogradouroService();
+        LogradouroService logradouroService = new LogradouroService();
+        EnderecoService enderecoService = new EnderecoService();
+
+        boolean executar = true;
+        while (executar) {
+            System.out.println("\n=== MENU PRINCIPAL ===");
+            System.out.println("1. Cadastrar Endereço Completo");
+            System.out.println("2. Sair");
+            System.out.print("Escolha uma opção: ");
+            int opcao = sc.nextInt();
+            sc.nextLine(); // Consumir quebra de linha
+
+            switch (opcao) {
+                case 1:
+                    try {
+                        // 1) Listar UFs existentes e escolher uma
+                        System.out.println("\n=== LISTA DE UNIDADES FEDERACAO (UF) ===");
+                        List<UnidadeFederacao> listaUF = ufService.listarUFs(); // método que faz SELECT IdUF, NomeUF
+                        if (listaUF.isEmpty()) {
+                            System.out.println("Não há UFs pré-cadastradas. Cadastre-as antes de continuar.");
+                            break;
+                        }
+                        for (UnidadeFederacao uf : listaUF) {
+                            System.out.println("ID " + uf.getIdUF() + " = " + uf.getNomeUF());
+                        }
+                        System.out.print("\nDigite o ID da UF que deseja associar à cidade: ");
+                        int idUFEscolhido = sc.nextInt();
+                        sc.nextLine();
+
+                        // 2) Criar Cidade associada à UF escolhida
+                        System.out.print("Digite o nome da nova Cidade: ");
+                        String nomeCidade = sc.nextLine();
+
+                        UnidadeFederacao ufObj = new UnidadeFederacao();
+                        ufObj.setIdUF(idUFEscolhido);
+
+                        Cidade cidade = new Cidade();
+                        cidade.setNomeCidade(nomeCidade);
+                        cidade.setUnidadeFederacao(ufObj); // associa a UF
+
+                        int idCidade = cidadeService.cadastrarCidade(cidade);
+                        System.out.println("Cidade criada com ID = " + idCidade);
+
+                        // 3) Criar novo Bairro
+                        System.out.print("\nDigite o nome do novo Bairro: ");
+                        String nomeBairro = sc.nextLine();
+                        Bairro bairro = new Bairro();
+                        bairro.setNomeBairro(nomeBairro);
+
+                        int idBairro = bairroService.cadastrarBairro(bairro);
+                        System.out.println("Bairro criado com ID = " + idBairro);
+
+                        // 4) Listar TipoLogradouro existentes e escolher um
+                        System.out.println("\n=== LISTA DE TIPO DE LOGRADOURO ===");
+                        List<TipoLogradouro> listaTipos = tipoLogService.listarTipoLogradouros();
+                        if (listaTipos.isEmpty()) {
+                            System.out.println("Não há TipoLogradouro pré-cadastrados. Cadastre-os antes de continuar.");
+                            break;
+                        }
+                        for (TipoLogradouro tipo : listaTipos) {
+                            System.out.println("ID " + tipo.getIdTipoLogradouro() + " = " + tipo.getNomeTipoLogradouro());
+                        }
+                        System.out.print("\nDigite o ID do Tipo de Logradouro que deseja associar: ");
+                        int idTipoLogEscolhido = sc.nextInt();
+                        sc.nextLine();
+
+                        // 5) Criar novo Logradouro associado ao Tipo escolhido
+                        System.out.print("Digite o nome do novo Logradouro: ");
+                        String nomeLog = sc.nextLine();
+
+                        TipoLogradouro tLogObj = new TipoLogradouro();
+                        tLogObj.setIdTipoLogradouro(idTipoLogEscolhido);
+
+                        Logradouro logradouro = new Logradouro();
+                        logradouro.setNomeLogradouro(nomeLog);
+                        logradouro.setTipoLogradouro(tLogObj);
+
+                        int idLogradouro = logradouroService.cadastrarLogradouro(logradouro);
+                        System.out.println("Logradouro criado com ID = " + idLogradouro);
+
+                        // 6) Finalmente, criar o Endereco
+                        System.out.print("\nDigite o CEP (apenas números): ");
+                        int cep = sc.nextInt();
+                        sc.nextLine();
+
+                        Endereco end = new Endereco();
+                        end.setCep(cep);
+
+                        // Associando a cidade, bairro e logradouro
+                        Cidade cidObj = new Cidade();
+                        cidObj.setIdCidade(idCidade);
+                        Bairro bObj = new Bairro();
+                        bObj.setIdBairro(idBairro);
+                        Logradouro lObj = new Logradouro();
+                        lObj.setIdLogradouro(idLogradouro);
+
+                        end.setCidade(cidObj);
+                        end.setBairro(bObj);
+                        end.setLogradouro(lObj);
+
+                        int idEnd = enderecoService.cadastrarEndereco(end);
+                        System.out.println("Endereço cadastrado com sucesso! ID = " + idEnd);
+
+                    } catch (SQLException e) {
+                        System.err.println("Erro ao cadastrar endereço completo: " + e.getMessage());
+                    }
+                    break;
+
+                case 2:
+                    executar = false;
+                    System.out.println("Programa encerrado.");
+                    break;
+
+                default:
+                    System.out.println("Opção inválida!");
+            }
+        }
+
+        sc.close();
+    }
+}

@@ -1,0 +1,34 @@
+package dao;
+
+import database.PostgresDatabaseConnection;
+import models.Cidade;
+import models.UnidadeFederacao;
+
+import java.sql.*;
+
+public class CidadeDAO {
+	private Connection connection;
+
+    public CidadeDAO(Connection connection) {
+        this.connection = connection;
+    }
+    public int cadastrarCidade(Cidade cidade) throws SQLException {
+        String sql = "INSERT INTO Cidade (IdUF, NomeCidade) VALUES (?, ?)";
+        try (Connection conn = PostgresDatabaseConnection.getConnection();
+             PreparedStatement ps = conn.prepareStatement(sql, Statement.RETURN_GENERATED_KEYS)) {
+            // Supõe que o objeto Cidade possui uma UnidadeFederacao com o ID definido
+            ps.setInt(1, cidade.getUnidadeFederacao().getIdUF());
+            ps.setString(2, cidade.getNomeCidade());
+            ps.executeUpdate();
+            try (ResultSet rs = ps.getGeneratedKeys()) {
+                if (rs.next()) {
+                    int id = rs.getInt(1);
+                    cidade.setIdCidade(id);
+                    return id;
+                } else {
+                    throw new SQLException("Erro ao cadastrar Cidade, não foi possível obter o ID.");
+                }
+            }
+        }
+    }
+}

@@ -1,0 +1,19 @@
+1742689229673	Delete element
+1742689826132	Delete element
+1742763365257	Delete element
+1742765689444	Delete element
+1742776725124	Rename package 'models'
+1742776738067	Rename package 'dao'
+1742776804219	Rename package 'services'
+1742776819514	Rename type 'BairroService'
+1742776828605	Rename type 'CidadeService'
+1742776846117	Rename type 'DDDFornecedorService'
+1742776856913	Rename type 'DDIFornecedorService'
+1742776863925	Rename type 'EnderecoService'
+1742776871319	Rename type 'FaturaService'
+1742776878826	Rename type 'FornecedorService'
+1742776889559	Rename type 'LogradouroService'
+1742776898593	Rename type 'TipoLogradouroService'
+1742776908877	Rename type 'UnidadeFederacaoService'
+1742777106569	Rename type 'DDDFornecedorDAP'
+1742778165883	Delete element

@@ -1,0 +1,106 @@
+DROP TABLE IF EXISTS Fatura CASCADE;
+DROP TABLE IF EXISTS MotivoFatura CASCADE;
+DROP TABLE IF EXISTS EmailFornecedor CASCADE;
+DROP TABLE IF EXISTS FoneFornecedor CASCADE;
+DROP TABLE IF EXISTS DDDFornecedor CASCADE;
+DROP TABLE IF EXISTS DDIFornecedor CASCADE;
+DROP TABLE IF EXISTS Fornecedor CASCADE;
+DROP TABLE IF EXISTS Endereco CASCADE;
+DROP TABLE IF EXISTS Logradouro CASCADE;
+DROP TABLE IF EXISTS TipoLogradouro CASCADE;
+DROP TABLE IF EXISTS Bairro CASCADE;
+DROP TABLE IF EXISTS Cidade CASCADE;
+DROP TABLE IF EXISTS Unidade_Federacao CASCADE;
+DROP TYPE IF EXISTS EnderecoEspecifico CASCADE;
+
+-- Tipo complexo para endereço específico
+CREATE TYPE EnderecoEspecifico AS (
+    numeroEnd INT,
+    complemento VARCHAR
+);
+
+-- Tabelas auxiliares
+CREATE TABLE Unidade_Federacao (
+    IdUF SERIAL PRIMARY KEY,
+    NomeUF VARCHAR
+);
+
+CREATE TABLE Cidade (
+    IdCidade SERIAL PRIMARY KEY,
+    IdUF INT REFERENCES Unidade_Federacao(IdUF),
+    NomeCidade VARCHAR
+);
+
+CREATE TABLE Bairro (
+    IdBairro SERIAL PRIMARY KEY,
+    NomeBairro VARCHAR
+);
+
+CREATE TABLE TipoLogradouro (
+    IdTipoLogradouro SERIAL PRIMARY KEY,
+    NomeTipoLogradouro VARCHAR
+);
+
+CREATE TABLE Logradouro (
+    IdLogradouro SERIAL PRIMARY KEY,
+    NomeLogradouro VARCHAR,
+    IdTipoLogradouro INT REFERENCES TipoLogradouro(IdTipoLogradouro)
+);
+
+CREATE TABLE Endereco (
+    IdEndereco SERIAL PRIMARY KEY,
+    CEP INT,
+    IdCidade INT REFERENCES Cidade(IdCidade),
+    IdBairro INT REFERENCES Bairro(IdBairro),
+    IdLogradouro INT REFERENCES Logradouro(IdLogradouro)
+);
+
+-- Tabela principal: Fornecedor
+CREATE TABLE Fornecedor (
+    IDFornecedor SERIAL PRIMARY KEY,
+    CNPJ VARCHAR,
+    Nome VARCHAR,
+    IdEndereco INT REFERENCES Endereco(IdEndereco),
+    SaldoAPagar DOUBLE PRECISION,
+    EnderecoEspecifico EnderecoEspecifico
+);
+
+-- Contatos do fornecedor
+CREATE TABLE DDIFornecedor (
+    Id_DDIFornecedor SERIAL PRIMARY KEY,
+    DDI VARCHAR
+);
+
+CREATE TABLE DDDFornecedor (
+    Id_DDDFornecedor SERIAL PRIMARY KEY,
+    DDD VARCHAR
+);
+
+CREATE TABLE FoneFornecedor (
+    IdFone SERIAL PRIMARY KEY,
+    IDFornecedor INT REFERENCES Fornecedor(IDFornecedor),
+    Id_DDIFornecedor INT REFERENCES DDIFornecedor(Id_DDIFornecedor),
+    Id_DDDFornecedor INT REFERENCES DDDFornecedor(Id_DDDFornecedor),
+    NrofoneFornecedor VARCHAR
+);
+
+CREATE TABLE EmailFornecedor (
+    IdEmail SERIAL PRIMARY KEY,
+    IdFornecedor INT REFERENCES Fornecedor(IDFornecedor),
+    EmailFornecedor VARCHAR
+);
+
+-- Faturas
+CREATE TABLE MotivoFatura (
+    IdMotivo SERIAL PRIMARY KEY,
+    Motivo VARCHAR
+);
+
+CREATE TABLE Fatura (
+    IdFatura SERIAL PRIMARY KEY,
+    IdFornecedor INT REFERENCES Fornecedor(IDFornecedor),
+    ValorFatura DOUBLE PRECISION,
+    IdMotivo INT REFERENCES MotivoFatura(IdMotivo),
+    DTVencimento DATE,
+    DTLancamento DATE
+);

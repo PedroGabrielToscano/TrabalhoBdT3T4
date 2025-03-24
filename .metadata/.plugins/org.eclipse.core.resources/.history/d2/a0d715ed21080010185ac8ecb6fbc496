@@ -1,0 +1,245 @@
+package app;
+
+import models.EmailFornecedor;
+import models.Endereco;
+import models.EnderecoEspecifico;
+import models.Fatura;
+import models.Fornecedor;
+import models.FoneFornecedor;
+import models.MotivoFatura;
+import services.FaturaService;
+import services.FornecedorService;
+
+import java.sql.SQLException;
+import java.time.LocalDate;
+import java.time.format.DateTimeFormatter;
+import java.util.List;
+import java.util.Scanner;
+
+public class Main {
+    public static void main(String[] args) {
+        Scanner sc = new Scanner(System.in);
+        FaturaService faturaService = new FaturaService();
+        FornecedorService fornecedorService = new FornecedorService();
+
+        boolean executar = true;
+        while (executar) {
+            System.out.println("\n=== MENU PRINCIPAL ===");
+            System.out.println("1. Consultar Fornecedores e Faturas");
+            System.out.println("2. Inserir nova fatura");
+            System.out.println("3. Cadastrar Fornecedor");
+            System.out.println("4. Sair");
+            System.out.print("Escolha uma opção: ");
+            int opcao = sc.nextInt();
+            sc.nextLine(); // Consumir a quebra de linha
+
+            switch (opcao) {
+                case 1:
+                    // Consulta de fornecedores e faturas
+                    List<Fornecedor> fornecedores = fornecedorService.listarFornecedoresComContatos();
+                    if (fornecedores.isEmpty()) {
+                        System.out.println("Nenhum fornecedor cadastrado.");
+                        break;
+                    }
+                    System.out.println("\n=== LISTA DE FORNECEDORES ===");
+                    for (Fornecedor f : fornecedores) {
+                        // Exibe o ID e nome para facilitar a escolha
+                        System.out.println("ID " + f.getIdFornecedor() + " = " + f.getNome());
+                    }
+                    System.out.print("\nDigite o ID do fornecedor para ver os detalhes das faturas: ");
+                    int idEscolhido = sc.nextInt();
+                    sc.nextLine(); // Consumir a quebra de linha
+
+                    Fornecedor fornecedorSelecionado = null;
+                    for (Fornecedor f : fornecedores) {
+                        if (f.getIdFornecedor() == idEscolhido) {
+                            fornecedorSelecionado = f;
+                            break;
+                        }
+                    }
+                    if (fornecedorSelecionado == null) {
+                        System.out.println("Fornecedor não encontrado!");
+                        break;
+                    }
+                    System.out.println("\nFornecedor: " + fornecedorSelecionado.getNome()
+                            + " (CNPJ: " + fornecedorSelecionado.getCnpj() + ")");
+                    // Exibe contatos, se disponíveis
+                    if (fornecedorSelecionado.getListaEmails() != null && !fornecedorSelecionado.getListaEmails().isEmpty()) {
+                        System.out.println("Emails:");
+                        for (EmailFornecedor email : fornecedorSelecionado.getListaEmails()) {
+                            System.out.println("  - " + email.getEmailFornecedor());
+                        }
+                    }
+                    if (fornecedorSelecionado.getListaFones() != null && !fornecedorSelecionado.getListaFones().isEmpty()) {
+                        System.out.println("Fones:");
+                        for (FoneFornecedor fone : fornecedorSelecionado.getListaFones()) {
+                            System.out.println("  - " + fone.getNroFoneFornecedor());
+                        }
+                    }
+                    System.out.println("Saldo a pagar: R$ " + fornecedorSelecionado.getSaldoAPagar());
+
+                    // Consulta as faturas do fornecedor selecionado
+                    List<Fatura> faturas = faturaService.listarFaturasPorFornecedor(fornecedorSelecionado.getIdFornecedor());
+                    if (faturas.isEmpty()) {
+                        System.out.println("\nEsse fornecedor não possui faturas cadastradas.");
+                    } else {
+                        double saldoAcumulado = 0;
+                        DateTimeFormatter formatter = DateTimeFormatter.ofPattern("dd/MM/yyyy");
+                        System.out.println("\nNro. Fatura | Motivo Fatura           | Vencimento  | Valor   | Saldo");
+                        System.out.println("---------------------------------------------------------------");
+                        for (Fatura fat : faturas) {
+                            saldoAcumulado += fat.getValorFatura();
+                            System.out.printf("%-12d | %-24s | %-11s | %-7.2f | %-7.2f%n",
+                                    fat.getIdFatura(),
+                                    fat.getMotivoFatura().getMotivo(),
+                                    fat.getDtVencimento().format(formatter),
+                                    fat.getValorFatura(),
+                                    saldoAcumulado);
+                        }
+                    }
+                    break;
+
+                case 2:
+                    // Inserção de nova fatura
+                    List<Fornecedor> fornecedores2 = fornecedorService.listarFornecedoresComContatos();
+                    if (fornecedores2.isEmpty()) {
+                        System.out.println("Nenhum fornecedor cadastrado.");
+                        break;
+                    }
+                    System.out.println("\n=== FORNECEDORES ===");
+                    for (Fornecedor f : fornecedores2) {
+                        System.out.println("ID " + f.getIdFornecedor() + " = " + f.getNome());
+                    }
+                    System.out.print("\nDigite o ID do fornecedor para inserir a fatura: ");
+                    int idFornecedor = sc.nextInt();
+                    sc.nextLine();
+
+                    Fornecedor fornecedorEscolhido = null;
+                    for (Fornecedor f : fornecedores2) {
+                        if (f.getIdFornecedor() == idFornecedor) {
+                            fornecedorEscolhido = f;
+                            break;
+                        }
+                    }
+                    if (fornecedorEscolhido == null) {
+                        System.out.println("Fornecedor não encontrado!");
+                        break;
+                    }
+                    // Lista os motivos de fatura disponíveis (dados fixos para este exemplo)
+                    System.out.println("\n=== MOTIVOS DE FATURA ===");
+                    System.out.println("ID 1 = Compra de insumos");
+                    System.out.println("ID 2 = Serviços terceirizados");
+                    System.out.print("\nDigite o ID do motivo da fatura: ");
+                    int idMotivo = sc.nextInt();
+                    sc.nextLine();
+
+                    System.out.print("Informe o valor da fatura: ");
+                    double valorFatura = sc.nextDouble();
+                    sc.nextLine();
+
+                    // Solicita a data de vencimento ao usuário
+                    System.out.print("Informe a data de vencimento da fatura (dd/MM/yyyy): ");
+                    String dtVencimentoStr = sc.nextLine();
+                    DateTimeFormatter formatter = DateTimeFormatter.ofPattern("dd/MM/yyyy");
+                    LocalDate dtVencimento = LocalDate.parse(dtVencimentoStr, formatter);
+
+                    // Define a data de lançamento como a data atual
+                    LocalDate dtLancamento = LocalDate.now();
+
+                    Fatura novaFatura = new Fatura();
+                    novaFatura.setFornecedor(fornecedorEscolhido);
+                    novaFatura.setValorFatura(valorFatura);
+
+                    MotivoFatura motivo = new MotivoFatura();
+                    motivo.setIdMotivo(idMotivo);
+                    if (idMotivo == 1) {
+                        motivo.setMotivo("Compra de insumos");
+                    } else if (idMotivo == 2) {
+                        motivo.setMotivo("Serviços terceirizados");
+                    } else {
+                        motivo.setMotivo("Outro");
+                    }
+                    novaFatura.setMotivoFatura(motivo);
+                    novaFatura.setDtLancamento(dtLancamento);
+                    novaFatura.setDtVencimento(dtVencimento);
+
+                    try {
+                        faturaService.inserirFatura(novaFatura);
+                    } catch (SQLException e) {
+                        System.err.println("Erro ao inserir a fatura: " + e.getMessage());
+                    }
+                    break;
+
+                case 3:
+                    // Cadastro de novo fornecedor
+                    System.out.println("\n=== CADASTRAR FORNECEDOR ===");
+                    System.out.print("Digite o ID do fornecedor: ");
+                    int idFornecedorNovo = sc.nextInt();
+                    sc.nextLine();
+                    
+                    System.out.print("Digite o CNPJ do fornecedor: ");
+                    String cnpj = sc.nextLine();
+                    
+                    System.out.print("Digite o nome do fornecedor: ");
+                    String nome = sc.nextLine();
+                    
+                    System.out.print("Digite o ID do endereço (já cadastrado) do fornecedor: ");
+                    int idEndereco = sc.nextInt();
+                    sc.nextLine();
+                    
+                    System.out.print("Digite o número do endereço específico: ");
+                    int numeroEnd = sc.nextInt();
+                    sc.nextLine();
+                    
+                    System.out.print("Digite o complemento do endereço específico: ");
+                    String complemento = sc.nextLine();
+                    
+                    // Cria o objeto Fornecedor e os objetos relacionados
+                    Fornecedor novoFornecedor = new Fornecedor();
+                    novoFornecedor.setIdFornecedor(idFornecedorNovo);
+                    novoFornecedor.setCnpj(cnpj);
+                    novoFornecedor.setNome(nome);
+                    
+                    // Endereço (supondo que o endereço já exista na tabela Endereco)
+                    Endereco endereco = new Endereco();
+                    endereco.setIdEndereco(idEndereco);
+                    novoFornecedor.setEndereco(endereco);
+                    
+                    // O saldo inicial é 0
+                    novoFornecedor.setSaldoAPagar(0.0);
+                    
+                    // EndereçoEspecifico
+                    EnderecoEspecifico enderecoEspecifico = new EnderecoEspecifico();
+                    enderecoEspecifico.setNumeroEnd(numeroEnd);
+                    enderecoEspecifico.setComplemento(complemento);
+                    novoFornecedor.setEnderecoEspecifico(enderecoEspecifico);
+                    
+                    try {
+                        fornecedorService.cadastrarFornecedor(novoFornecedor);
+                        System.out.println("Fornecedor cadastrado com sucesso!");
+                    } catch (SQLException e) {
+                        System.err.println("Erro ao cadastrar fornecedor: " + e.getMessage());
+                    }
+                    break;
+
+                case 4:
+                    executar = false;
+                    System.out.println("Programa encerrado.");
+                    break;
+
+                default:
+                    System.out.println("Opção inválida!");
+            }
+
+            if (executar) {
+                System.out.print("\nDeseja retornar ao menu principal? (S/N): ");
+                String op = sc.nextLine();
+                if (op.equalsIgnoreCase("N")) {
+                    executar = false;
+                    System.out.println("Programa encerrado.");
+                }
+            }
+        }
+        sc.close();
+    }
+}

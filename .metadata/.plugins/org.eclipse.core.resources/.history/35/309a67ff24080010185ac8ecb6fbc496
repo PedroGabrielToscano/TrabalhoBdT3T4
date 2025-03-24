@@ -1,0 +1,25 @@
+package services;
+
+import database.PostgresDatabaseConnection;
+import models.TipoLogradouro;
+import java.sql.*;
+
+public class TipoLogradouroService {
+    public int cadastrarTipoLogradouro(TipoLogradouro tipo) throws SQLException {
+        String sql = "INSERT INTO TipoLogradouro (NomeTipoLogradouro) VALUES (?)";
+        try (Connection conn = PostgresDatabaseConnection.getConnection();
+             PreparedStatement ps = conn.prepareStatement(sql, Statement.RETURN_GENERATED_KEYS)) {
+            ps.setString(1, tipo.getNomeTipoLogradouro());
+            ps.executeUpdate();
+            try (ResultSet rs = ps.getGeneratedKeys()) {
+                if (rs.next()) {
+                    int id = rs.getInt(1);
+                    tipo.setIdTipoLogradouro(id);
+                    return id;
+                } else {
+                    throw new SQLException("Erro ao cadastrar Tipo de Logradouro, não foi possível obter o ID.");
+                }
+            }
+        }
+    }
+}

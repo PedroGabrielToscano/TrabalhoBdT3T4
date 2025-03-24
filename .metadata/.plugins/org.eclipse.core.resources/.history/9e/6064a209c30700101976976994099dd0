@@ -1,0 +1,29 @@
+package app;
+
+import java.sql.Connection;
+import java.sql.SQLException;
+
+import database.PostgresDatabaseConnection;
+
+public class Main {
+    public static void main(String[] args) {
+        try {
+            // Tenta obter a conexão
+            Connection conn = PostgresDatabaseConnection.getConnection();
+
+            // Verifica se a conexão não é nula e se está aberta
+            if (conn != null && !conn.isClosed()) {
+                System.out.println("Conexão estabelecida com sucesso!");
+            } else {
+                System.out.println("Falha ao estabelecer conexão!");
+            }
+        } catch (SQLException e) {
+            // Em caso de erro, imprime a pilha de exceção
+            System.err.println("Erro ao conectar ao banco de dados: " + e.getMessage());
+            e.printStackTrace();
+        } finally {
+            // Fecha a conexão para liberar recursos
+            PostgresDatabaseConnection.closeConnection();
+        }
+    }
+}

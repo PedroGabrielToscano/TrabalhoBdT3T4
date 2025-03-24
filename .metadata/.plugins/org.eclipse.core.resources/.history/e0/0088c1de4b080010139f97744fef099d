@@ -1,0 +1,219 @@
+package app;
+
+import database.PostgresDatabaseConnection;
+import models.Fatura;
+import models.Fornecedor;
+import service.ContasPagarService;
+import transacao.TransacaoIncompleta;
+import transacao.TransacaoOK;
+import transacao.TransacaoRollback;
+
+import java.sql.Connection;
+import java.sql.SQLException;
+import java.time.LocalDate;
+import java.time.format.DateTimeFormatter;
+import java.util.List;
+import java.util.Scanner;
+
+public class Main {
+    public static void main(String[] args) throws SQLException {
+        Scanner sc = new Scanner(System.in);
+
+        // Etapa de Login
+        System.out.println("=== LOGIN NO BANCO DE DADOS ===");
+        System.out.print("Digite o usuário: ");
+        String user = sc.nextLine();
+        System.out.print("Digite a senha: ");
+        String password = sc.nextLine();
+        PostgresDatabaseConnection.setCredentials(user, password);
+
+        Connection conn = PostgresDatabaseConnection.getConnection();
+        if (conn != null && !conn.isClosed()) {
+            System.out.println("Conexão estabelecida com sucesso!");
+        } else {
+            System.err.println("Erro ao conectar. Encerrando.");
+            System.exit(1);
+        }
+
+        // Instancia o serviço de Contas a Pagar
+        ContasPagarService service = new ContasPagarService(conn);
+
+        boolean executar = true;
+        while (executar) {
+            showMenu();
+            int opcao = sc.nextInt();
+            sc.nextLine(); // Consome a quebra de linha
+
+            switch (opcao) {
+                case 1:
+                    consultarFornecedores(sc, service);
+                    break;
+                case 2:
+                    inserirFatura(sc, service);
+                    break;
+                case 3:
+                    cadastrarFornecedor(sc, service);
+                    break;
+                case 4:
+                    deletarFatura(sc, service);
+                    break;
+                case 5:
+                    // Simular Transação OK
+                    System.out.println("\nExecutando Transação OK...");
+                    TransacaoOK.executarTransacaoOK();
+                    break;
+                case 6:
+                    // Simular Transação Incompleta
+                    System.out.println("\nExecutando Transação Incompleta...");
+                    TransacaoIncompleta.executarTransacaoIncompleta();
+                    break;
+                case 7:
+                    // Simular Transação com Rollback
+                    System.out.println("\nExecutando Transação com Rollback...");
+                    TransacaoRollback.executarTransacaoRollback();
+                    break;
+                case 8:
+                    executar = false;
+                    System.out.println("Programa encerrado.");
+                    break;
+                default:
+                    System.out.println("Opção inválida!");
+            }
+            if (executar) {
+                System.out.print("\nDeseja retornar ao menu principal? (S/N): ");
+                String op = sc.nextLine();
+                if (op.equalsIgnoreCase("N")) {
+                    executar = false;
+                    System.out.println("Programa encerrado.");
+                }
+            }
+        }
+        sc.close();
+    }
+
+    private static void showMenu() {
+        System.out.println("\n=== MENU PRINCIPAL ===");
+        System.out.println("1. Consultar Fornecedores e Faturas");
+        System.out.println("2. Inserir nova fatura");
+        System.out.println("3. Cadastrar Fornecedor");
+        System.out.println("4. Deletar Fatura");
+        System.out.println("5. Simular Transação OK");
+        System.out.println("6. Simular Transação Incompleta");
+        System.out.println("7. Simular Transação com Rollback");
+        System.out.println("8. Sair");
+        System.out.print("Escolha uma opção: ");
+    }
+
+    private static void consultarFornecedores(Scanner sc, ContasPagarService service) {
+        try {
+            List<Fornecedor> lista = service.listarFornecedores();
+            if (lista.isEmpty()) {
+                System.out.println("Nenhum fornecedor cadastrado.");
+                return;
+            }
+            System.out.println("\n=== LISTA DE FORNECEDORES ===");
+            for (Fornecedor f : lista) {
+                System.out.println("ID " + f.getIdFornecedor() + " = " + f.getNome());
+            }
+            System.out.print("\nDigite o ID do fornecedor para ver as faturas: ");
+            int idEscolhido = sc.nextInt();
+            sc.nextLine();
+            Fornecedor fornecedorSelecionado = lista.stream()
+                    .filter(f -> f.getIdFornecedor() == idEscolhido)
+                    .findFirst().orElse(null);
+            if (fornecedorSelecionado == null) {
+                System.out.println("Fornecedor não encontrado!");
+                return;
+            }
+            System.out.println("Fornecedor: " + fornecedorSelecionado.getNome() +
+                    " (CNPJ: " + fornecedorSelecionado.getCnpj() + ")");
+            List<Fatura> faturas = service.consultarFaturasPorFornecedor(fornecedorSelecionado.getIdFornecedor());
+            if (faturas.isEmpty()) {
+                System.out.println("Esse fornecedor não possui faturas cadastradas.");
+            } else {
+                DateTimeFormatter formatter = DateTimeFormatter.ofPattern("dd/MM/yyyy");
+                System.out.println("\nNro. Fatura | Motivo       | Vencimento  | Valor");
+                for (Fatura fat : faturas) {
+                    System.out.printf("%-12d | %-12s | %-11s | %-7.2f%n",
+                            fat.getIdFatura(),
+                            fat.getMotivoFatura().getMotivo(),
+                            fat.getDtVencimento().format(formatter),
+                            fat.getValorFatura());
+                }
+            }
+        } catch (SQLException e) {
+            System.err.println("Erro ao consultar fornecedores/faturas: " + e.getMessage());
+        }
+    }
+
+    private static void inserirFatura(Scanner sc, ContasPagarService service) {
+        try {
+            System.out.print("Digite o ID do fornecedor para inserir a fatura: ");
+            int idFornecedor = sc.nextInt();
+            sc.nextLine();
+            System.out.print("Digite o valor da fatura: ");
+            double valor = sc.nextDouble();
+            sc.nextLine();
+            System.out.print("Digite a data de vencimento (dd/MM/yyyy): ");
+            String dataVenc = sc.nextLine();
+            DateTimeFormatter formatter = DateTimeFormatter.ofPattern("dd/MM/yyyy");
+            LocalDate dtVencimento = LocalDate.parse(dataVenc, formatter);
+            Fatura fatura = new Fatura();
+            Fornecedor fornecedor = new Fornecedor();
+            fornecedor.setIdFornecedor(idFornecedor);
+            fatura.setFornecedor(fornecedor);
+            fatura.setValorFatura(valor);
+            fatura.setDtVencimento(dtVencimento);
+            fatura.setDtLancamento(LocalDate.now());
+            // Para o exemplo, usamos motivo fixo
+            fatura.getMotivoFatura().setIdMotivo(1);
+            fatura.getMotivoFatura().setMotivo("Compra de insumos");
+            service.inserirFatura(fatura);
+            System.out.println("Fatura inserida com sucesso!");
+        } catch (Exception e) {
+            System.err.println("Erro ao inserir fatura: " + e.getMessage());
+        }
+    }
+
+    private static void cadastrarFornecedor(Scanner sc, ContasPagarService service) {
+        try {
+            System.out.print("Digite o CNPJ do fornecedor: ");
+            String cnpj = sc.nextLine();
+            System.out.print("Digite o nome do fornecedor: ");
+            String nome = sc.nextLine();
+            System.out.print("Digite o ID do endereço já cadastrado: ");
+            int idEndereco = sc.nextInt();
+            sc.nextLine();
+            System.out.print("Digite o email do fornecedor: ");
+            String email = sc.nextLine();
+            System.out.print("Digite o telefone do fornecedor: ");
+            String telefone = sc.nextLine();
+            System.out.print("Digite o ID do DDI: ");
+            int idDDI = sc.nextInt();
+            sc.nextLine();
+            System.out.print("Digite o ID do DDD: ");
+            int idDDD = sc.nextInt();
+            sc.nextLine();
+            Fornecedor fornecedor = new Fornecedor();
+            fornecedor.setCnpj(cnpj);
+            fornecedor.setNome(nome);
+            fornecedor.getEndereco().setIdEndereco(idEndereco);
+            service.cadastrarFornecedor(fornecedor, email, idDDI, idDDD, telefone);
+            System.out.println("Fornecedor cadastrado com sucesso!");
+        } catch (Exception e) {
+            System.err.println("Erro ao cadastrar fornecedor: " + e.getMessage());
+        }
+    }
+
+    private static void deletarFatura(Scanner sc, ContasPagarService service) {
+        try {
+            System.out.print("Digite o ID da fatura a ser deletada: ");
+            int idFatura = sc.nextInt();
+            sc.nextLine();
+            service.deletarFatura(idFatura);
+            System.out.println("Fatura deletada com sucesso!");
+        } catch (SQLException e) {
+            System.err.println("Erro ao deletar fatura: " + e.getMessage());
+        }
+    }
+}

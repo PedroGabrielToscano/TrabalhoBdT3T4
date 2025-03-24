@@ -1,0 +1,112 @@
+-----------------------------
+-- 1) UNIDADE_FEDERACAO
+-----------------------------
+INSERT INTO Unidade_Federacao (NomeUF) VALUES
+('São Paulo'),
+('Rio de Janeiro');
+
+-----------------------------
+-- 2) CIDADE
+-----------------------------
+INSERT INTO Cidade (IdUF, NomeCidade) VALUES
+(1, 'São Paulo'),
+(1, 'Guarulhos'),
+(2, 'Rio de Janeiro');
+
+-----------------------------
+-- 3) BAIRRO
+-----------------------------
+INSERT INTO Bairro (NomeBairro) VALUES
+('Centro'),
+('Jardins'),
+('Copacabana');
+
+-----------------------------
+-- 4) TIPO_LOGRADOURO
+-----------------------------
+INSERT INTO TipoLogradouro (NomeTipoLogradouro) VALUES
+('Rua'),
+('Avenida'),
+('Travessa');
+
+-----------------------------
+-- 5) LOGRADOURO
+-----------------------------
+INSERT INTO Logradouro (NomeLogradouro, IdTipoLogradouro) VALUES
+('Paulista', 2),
+('Barata Ribeiro', 1),
+('XV de Novembro', 1);
+
+-----------------------------
+-- 6) ENDERECO
+-----------------------------
+INSERT INTO Endereco (CEP, IdCidade, IdBairro, IdLogradouro) VALUES
+(12345678, 1, 2, 1),
+(87654321, 3, 3, 2),
+(11223344, 2, 1, 3);
+
+-----------------------------
+-- 7) FORNECEDOR
+--    SaldoAPagar = soma inicial das faturas (veja Fatura mais abaixo)
+-----------------------------
+-- Usando o tipo composto EnderecoEspecifico (numeroEnd, complemento)
+INSERT INTO Fornecedor 
+    (CNPJ, Nome, IdEndereco, SaldoAPagar, EnderecoEspecifico)
+VALUES
+    ('12345678000190', 'Fornecedor 1', 1, 200.00, ROW(100, 'Bloco A')),
+    ('98765432000110', 'Fornecedor 2', 2, 150.00, ROW(50, 'Fundos'));
+
+-----------------------------
+-- 8) DDI_FORNECEDOR
+-----------------------------
+INSERT INTO DDIFornecedor (DDI) VALUES
+('+55'),
+('+1');
+
+-----------------------------
+-- 9) DDD_FORNECEDOR
+-----------------------------
+INSERT INTO DDDFornecedor (DDD) VALUES
+('11'),
+('21');
+
+-----------------------------
+-- 10) FONE_FORNECEDOR
+-----------------------------
+INSERT INTO FoneFornecedor 
+    (IDFornecedor, Id_DDIFornecedor, Id_DDDFornecedor, NrofoneFornecedor)
+VALUES
+    (1, 1, 1, '999999999'),
+    (2, 1, 2, '888888888');
+
+-----------------------------
+-- 11) EMAIL_FORNECEDOR
+-----------------------------
+INSERT INTO EmailFornecedor 
+    (IdFornecedor, EmailFornecedor)
+VALUES
+    (1, 'contato@fornecedor1.com'),
+    (2, 'contato@fornecedor2.com');
+
+-----------------------------
+-- 12) MOTIVO_FATURA
+-----------------------------
+INSERT INTO MotivoFatura (Motivo) VALUES
+('Compra de insumos'),
+('Serviços terceirizados');
+
+-----------------------------
+-- 13) FATURA
+--    Cada fatura referencia o Fornecedor e o MotivoFatura.
+--    Valores somados para bater com o SaldoAPagar do Fornecedor.
+-----------------------------
+-- Fornecedor 1 tem duas faturas de 100.00 cada = 200.00
+-- Fornecedor 2 tem três faturas de 50.00 cada  = 150.00
+INSERT INTO Fatura
+    (IdFornecedor, ValorFatura, IdMotivo, DTVencimento, DTLancamento)
+VALUES
+    (1, 100.00, 1, '2025-04-10', '2025-03-23'),
+    (1, 100.00, 2, '2025-04-15', '2025-03-23'),
+    (2, 50.00, 1, '2025-04-20', '2025-03-23'),
+    (2, 50.00, 1, '2025-05-01', '2025-03-23'),
+    (2, 50.00, 2, '2025-05-10', '2025-03-23');

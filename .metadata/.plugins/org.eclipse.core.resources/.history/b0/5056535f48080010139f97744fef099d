@@ -1,0 +1,201 @@
+package services;
+
+import database.PostgresDatabaseConnection;
+
+import java.sql.*;
+import java.time.LocalDate;
+import java.util.ArrayList;
+import java.util.List;
+
+import dao.Fatura;
+import dao.MotivoFatura;
+
+public class FaturaService {
+
+	private Connection connection;
+
+    public FaturaService(Connection connection) {
+        this.connection = connection;
+    }
+    public List<Fatura> listarFaturasPorFornecedor(int idFornecedor) {
+        List<Fatura> lista = new ArrayList<>();
+
+        String sql = "SELECT fat.idfatura, fat.valorFatura, fat.dtvencimento, fat.dtlancamento, "
+                   + "       mot.idmotivo, mot.motivo "
+                   + "FROM fatura fat "
+                   + "JOIN motivofatura mot ON fat.idmotivo = mot.idmotivo "
+                   + "WHERE fat.idfornecedor = ?";
+
+        try (Connection conn = PostgresDatabaseConnection.getConnection();
+             PreparedStatement ps = conn.prepareStatement(sql)) {
+
+            ps.setInt(1, idFornecedor);
+            ResultSet rs = ps.executeQuery();
+
+            while (rs.next()) {
+                Fatura fatura = new Fatura();
+                fatura.setIdFatura(rs.getInt("idfatura"));
+                fatura.setValorFatura(rs.getDouble("valorFatura"));
+                fatura.setDtVencimento(rs.getDate("dtvencimento").toLocalDate());
+                fatura.setDtLancamento(rs.getDate("dtlancamento").toLocalDate());
+                
+                MotivoFatura motivo = new MotivoFatura();
+                motivo.setIdMotivo(rs.getInt("idmotivo"));
+                motivo.setMotivo(rs.getString("motivo"));
+                fatura.setMotivoFatura(motivo);
+
+                lista.add(fatura);
+            }
+        } catch (SQLException e) {
+            e.printStackTrace();
+        }
+
+        return lista;
+    }
+    public List<Fatura> listarTodasAsFaturas() throws SQLException {
+        List<Fatura> lista = new ArrayList<>();
+
+        String sql = "SELECT f.idfatura, f.idfornecedor, f.valorfatura, f.idmotivo, "
+                   + "       m.motivo, f.dtvencimento, f.dtlancamento "
+                   + "FROM fatura f "
+                   + "JOIN motivofatura m ON f.idmotivo = m.idmotivo "
+                   + "ORDER BY f.idfatura";
+
+        try (Connection conn = PostgresDatabaseConnection.getConnection();
+             PreparedStatement ps = conn.prepareStatement(sql)) {
+
+            ResultSet rs = ps.executeQuery();
+            while (rs.next()) {
+                Fatura f = new Fatura();
+                f.setIdFatura(rs.getInt("idfatura"));
+                f.setValorFatura(rs.getDouble("valorfatura"));
+                f.setDtVencimento(rs.getDate("dtvencimento").toLocalDate());
+                f.setDtLancamento(rs.getDate("dtlancamento").toLocalDate());
+
+                // Monta o MotivoFatura
+                MotivoFatura motivo = new MotivoFatura();
+                motivo.setIdMotivo(rs.getInt("idmotivo"));
+                motivo.setMotivo(rs.getString("motivo"));
+                f.setMotivoFatura(motivo);
+
+                // Você pode buscar dados do Fornecedor se quiser, 
+                // mas aqui só pegamos o idfornecedor
+                // Caso queira popular o Fornecedor, chame FornecedorService ou crie outra consulta.
+
+                lista.add(f);
+            }
+        }
+        return lista;
+    }
+
+    
+    public void inserirFatura(Fatura fatura) throws SQLException {
+        try (Connection conn = PostgresDatabaseConnection.getConnection()) {
+            conn.setAutoCommit(false);
+            try {
+                // 1) Gerar o novo idfatura: max(idfatura) + 1
+                int novoIdFatura = 0;
+                String sqlNewId = "SELECT COALESCE(MAX(idfatura), 0) + 1 AS newId FROM fatura";
+                try (Statement st = conn.createStatement();
+                     ResultSet rs = st.executeQuery(sqlNewId)) {
+                    if (rs.next()) {
+                        novoIdFatura = rs.getInt("newId");
+                    }
+                }
+                
+                // 2) Inserir a fatura com o novo id
+                String insertFaturaSQL = "INSERT INTO fatura (idfatura, idfornecedor, valorfatura, idmotivo, dtvencimento, dtlancamento) "
+                        + "VALUES (?, ?, ?, ?, ?, ?)";
+                try (PreparedStatement ps = conn.prepareStatement(insertFaturaSQL)) {
+                    ps.setInt(1, novoIdFatura);
+                    ps.setInt(2, fatura.getFornecedor().getIdFornecedor());
+                    ps.setDouble(3, fatura.getValorFatura());
+                    ps.setInt(4, fatura.getMotivoFatura().getIdMotivo());
+                    ps.setDate(5, Date.valueOf(fatura.getDtVencimento()));
+                    ps.setDate(6, Date.valueOf(fatura.getDtLancamento()));
+                    
+                    ps.executeUpdate();
+                }
+                
+                // 3) Atualizar o saldo do fornecedor somando o valor da fatura
+                String updateSaldoSQL = "UPDATE fornecedor SET saldoAPagar = saldoAPagar + ? WHERE idfornecedor = ?";
+                try (PreparedStatement ps2 = conn.prepareStatement(updateSaldoSQL)) {
+                    ps2.setDouble(1, fatura.getValorFatura());
+                    ps2.setInt(2, fatura.getFornecedor().getIdFornecedor());
+                    ps2.executeUpdate();
+                }
+                
+                conn.commit();
+                fatura.setIdFatura(novoIdFatura);
+                System.out.println("Fatura inserida com sucesso! ID gerado: " + novoIdFatura);
+            } catch (SQLException e) {
+                conn.rollback();
+                throw e;
+            }
+        }
+    }
+    public void deletarFatura(int idFatura) throws SQLException {
+        // Verifica se a conexão está fechada; se sim, reaberta
+        if (connection.isClosed()) {
+            connection = database.PostgresDatabaseConnection.getConnection();
+        }
+        
+        // 1. Obter o idFornecedor associado à fatura
+        String sqlQuery = "SELECT idfornecedor, valorfatura FROM fatura WHERE idfatura = ?";
+        int idFornecedor = 0;
+        double valorFaturaExcluida = 0.0;
+        try (PreparedStatement psQuery = connection.prepareStatement(sqlQuery)) {
+            psQuery.setInt(1, idFatura);
+            try (ResultSet rs = psQuery.executeQuery()) {
+                if (rs.next()) {
+                    idFornecedor = rs.getInt("idfornecedor");
+                    valorFaturaExcluida = rs.getDouble("valorfatura");
+                } else {
+                    System.out.println("Fatura não encontrada.");
+                    return;
+                }
+            }
+        }
+        
+        // 2. Deletar a fatura
+        String sqlDelete = "DELETE FROM fatura WHERE idfatura = ?";
+        try (PreparedStatement psDelete = connection.prepareStatement(sqlDelete)) {
+            psDelete.setInt(1, idFatura);
+            int rowsAffected = psDelete.executeUpdate();
+            if (rowsAffected > 0) {
+                System.out.println("Fatura deletada com sucesso!");
+            } else {
+                System.out.println("Nenhuma fatura encontrada com o ID informado.");
+                return;
+            }
+        }
+        
+        // 3. Atualizar o saldo do fornecedor recalculando a soma das faturas restantes
+        atualizarSaldoFornecedor(idFornecedor);
+    }
+    
+    // Método auxiliar para recalcular e atualizar o saldo do fornecedor
+    public void atualizarSaldoFornecedor(int idFornecedor) throws SQLException {
+        String sqlSum = "SELECT COALESCE(SUM(valorfatura), 0) AS total FROM fatura WHERE idfornecedor = ?";
+        double total = 0.0;
+        try (PreparedStatement psSum = connection.prepareStatement(sqlSum)) {
+            psSum.setInt(1, idFornecedor);
+            try (ResultSet rs = psSum.executeQuery()) {
+                if (rs.next()) {
+                    total = rs.getDouble("total");
+                }
+            }
+        }
+        
+        String sqlUpdate = "UPDATE fornecedor SET saldoapagar = ? WHERE idfornecedor = ?";
+        try (PreparedStatement psUpdate = connection.prepareStatement(sqlUpdate)) {
+            psUpdate.setDouble(1, total);
+            psUpdate.setInt(2, idFornecedor);
+            psUpdate.executeUpdate();
+        }
+        System.out.println("Saldo do fornecedor atualizado para R$ " + total);
+    }
+    
+    // Outros métodos, como inserir e listar faturas, permanecem...
+}
+

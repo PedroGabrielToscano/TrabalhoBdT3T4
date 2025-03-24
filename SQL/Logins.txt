@@ -1,0 +1,38 @@
+--a)-- Cria o usuário com senha
+CREATE USER full_access WITH PASSWORD 'full_access_password';
+
+-- Concede privilégios de superusuário (ou, alternativamente, todos os privilégios no banco)
+ALTER USER full_access WITH SUPERUSER;
+
+--b)Login com acesso somente para consulta (SELECT Only)
+-- Cria o usuário com senha
+CREATE USER select_only WITH PASSWORD 'select_password';
+
+-- Para que ele use o schema public
+REVOKE ALL ON SCHEMA public FROM select_only;
+GRANT USAGE ON SCHEMA public TO select_only;
+
+-- Remove todos os privilégios (se houver) e concede apenas SELECT em todas as tabelas
+REVOKE ALL ON ALL TABLES IN SCHEMA public FROM select_only;
+GRANT SELECT ON ALL TABLES IN SCHEMA public TO select_only;
+
+-- Garante que futuros objetos (tabelas) também terão o privilégio SELECT concedido
+ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT SELECT ON TABLES TO select_only;
+
+--c)Login com permissão para INSERT (mas não DELETE) na tabela Fatura
+-- Cria o papel de usuário para inserção
+CREATE ROLE usuario_insercao LOGIN PASSWORD 'senhaInsercao';
+
+-- Concede o uso do schema public
+GRANT USAGE ON SCHEMA public TO usuario_insercao;
+
+-- Concede a permissão de INSERT em todas as tabelas do schema public
+GRANT INSERT ON ALL TABLES IN SCHEMA public TO usuario_insercao;
+
+-- Concede a permissão de SELECT em todas as tabelas do schema public
+GRANT SELECT ON ALL TABLES IN SCHEMA public TO usuario_insercao;
+
+
+--pra tirar eh
+--DROP USER nome_do_user;
+

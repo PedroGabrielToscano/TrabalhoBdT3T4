@@ -1,0 +1,106 @@
+package services;
+
+import database.PostgresDatabaseConnection;
+import models.Fatura;
+import models.MotivoFatura;
+
+import java.sql.*;
+import java.time.LocalDate;
+import java.util.ArrayList;
+import java.util.List;
+
+public class FaturaService {
+
+    /**
+     * Retorna todas as faturas de um fornecedor específico, 
+     * junto com o motivo da fatura (JOIN na tabela MotivoFatura).
+     */
+    public List<Fatura> listarFaturasPorFornecedor(int idFornecedor) {
+        List<Fatura> lista = new ArrayList<>();
+
+        String sql = "SELECT fat.idfatura, fat.valorFatura, fat.dtvencimento, fat.dtlancamento, "
+                   + "       mot.idmotivo, mot.motivo "
+                   + "FROM fatura fat "
+                   + "JOIN motivofatura mot ON fat.idmotivo = mot.idmotivo "
+                   + "WHERE fat.idfornecedor = ?";
+
+        try (Connection conn = PostgresDatabaseConnection.getConnection();
+             PreparedStatement ps = conn.prepareStatement(sql)) {
+
+            ps.setInt(1, idFornecedor);
+            ResultSet rs = ps.executeQuery();
+
+            while (rs.next()) {
+                Fatura fatura = new Fatura();
+                fatura.setIdFatura(rs.getInt("idfatura"));
+                fatura.setValorFatura(rs.getDouble("valorFatura"));
+                fatura.setDtVencimento(rs.getDate("dtvencimento").toLocalDate());
+                fatura.setDtLancamento(rs.getDate("dtlancamento").toLocalDate());
+                
+                MotivoFatura motivo = new MotivoFatura();
+                motivo.setIdMotivo(rs.getInt("idmotivo"));
+                motivo.setMotivo(rs.getString("motivo"));
+                fatura.setMotivoFatura(motivo);
+
+                lista.add(fatura);
+            }
+        } catch (SQLException e) {
+            e.printStackTrace();
+        }
+
+        return lista;
+    }
+    
+    public void inserirFatura(Fatura fatura) throws SQLException {
+        // Abrir conexão e desabilitar autoCommit para controlar a transação manualmente.
+        try (Connection conn = PostgresDatabaseConnection.getConnection()) {
+            conn.setAutoCommit(false);
+
+            try {
+                // 1) Insert na tabela fatura
+                String insertFaturaSQL = 
+                      "INSERT INTO fatura (idfornecedor, valorfatura, idmotivo, dtvencimento, dtlancamento) "
+                    + "VALUES (?, ?, ?, ?, ?) RETURNING idfatura";
+
+                int novoIdFatura = 0;
+                try (PreparedStatement ps = conn.prepareStatement(insertFaturaSQL)) {
+                    ps.setInt(1, fatura.getFornecedor().getIdFornecedor());
+                    ps.setDouble(2, fatura.getValorFatura());
+                    ps.setInt(3, fatura.getMotivoFatura().getIdMotivo());
+                    ps.setDate(4, Date.valueOf(fatura.getDtVencimento()));
+                    ps.setDate(5, Date.valueOf(fatura.getDtLancamento()));
+
+                    ResultSet rs = ps.executeQuery();
+                    if (rs.next()) {
+                        novoIdFatura = rs.getInt("idfatura");
+                    }
+                }
+
+                // 2) Atualizar saldo do fornecedor
+                String updateSaldoSQL = 
+                    "UPDATE fornecedor "
+                  + "SET saldoAPagar = saldoAPagar + ? "
+                  + "WHERE idfornecedor = ?";
+
+                try (PreparedStatement ps2 = conn.prepareStatement(updateSaldoSQL)) {
+                    ps2.setDouble(1, fatura.getValorFatura());
+                    ps2.setInt(2, fatura.getFornecedor().getIdFornecedor());
+                    ps2.executeUpdate();
+                }
+
+                // 3) Se deu tudo certo, commit
+                conn.commit();
+
+                // Opcionalmente, podemos setar o id gerado no objeto fatura
+                fatura.setIdFatura(novoIdFatura);
+
+                System.out.println("Fatura inserida com sucesso! ID gerado: " + novoIdFatura);
+
+            } catch (SQLException e) {
+                // Em caso de erro, faz rollback
+                conn.rollback();
+                throw e;
+            }
+        }
+    }
+}

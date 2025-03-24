@@ -1,0 +1,107 @@
+package services;
+
+import database.PostgresDatabaseConnection;
+import model.Fornecedor;
+import model.EmailFornecedor;
+import model.FoneFornecedor;
+
+import java.sql.*;
+import java.util.ArrayList;
+import java.util.List;
+
+public class FornecedorService {
+
+    /**
+     * Retorna todos os fornecedores cadastrados no banco,
+     * juntamente com seus e-mails e telefones (se desejar).
+     */
+    public List<Fornecedor> listarFornecedoresComContatos() {
+        List<Fornecedor> lista = new ArrayList<>();
+        String sqlFornecedor = "SELECT f.idfornecedor, f.cnpj, f.nome, f.saldoapagar "
+                             + "FROM fornecedor f";
+
+        try (Connection conn = PostgresDatabaseConnection.getConnection();
+             Statement st = conn.createStatement();
+             ResultSet rs = st.executeQuery(sqlFornecedor)) {
+
+            while (rs.next()) {
+                Fornecedor fornecedor = new Fornecedor();
+                fornecedor.setIdFornecedor(rs.getInt("idfornecedor"));
+                fornecedor.setCnpj(rs.getString("cnpj"));
+                fornecedor.setNome(rs.getString("nome"));
+                fornecedor.setSaldoAPagar(rs.getDouble("saldoapagar"));
+                
+                // Carrega e-mails do fornecedor
+                fornecedor.setListaEmails(listarEmailsFornecedor(fornecedor.getIdFornecedor(), conn));
+                
+                // Carrega fones do fornecedor
+                fornecedor.setListaFones(listarFonesFornecedor(fornecedor.getIdFornecedor(), conn));
+                
+                lista.add(fornecedor);
+            }
+
+        } catch (SQLException e) {
+            e.printStackTrace();
+        }
+        return lista;
+    }
+
+    /**
+     * Lista todos os e-mails de um determinado fornecedor.
+     * Usamos a mesma conexão para otimizar.
+     */
+    private List<EmailFornecedor> listarEmailsFornecedor(int idFornecedor, Connection conn) {
+        List<EmailFornecedor> listaEmails = new ArrayList<>();
+        String sql = "SELECT idemail, emailfornecedor FROM emailfornecedor WHERE idfornecedor = ?";
+
+        try (PreparedStatement ps = conn.prepareStatement(sql)) {
+            ps.setInt(1, idFornecedor);
+            ResultSet rs = ps.executeQuery();
+
+            while (rs.next()) {
+                EmailFornecedor email = new EmailFornecedor();
+                email.setIdEmail(rs.getInt("idemail"));
+                email.setEmailFornecedor(rs.getString("emailfornecedor"));
+                listaEmails.add(email);
+            }
+        } catch (SQLException e) {
+            e.printStackTrace();
+        }
+
+        return listaEmails;
+    }
+
+    /**
+     * Lista todos os telefones de um determinado fornecedor.
+     */
+    private List<FoneFornecedor> listarFonesFornecedor(int idFornecedor, Connection conn) {
+        List<FoneFornecedor> listaFones = new ArrayList<>();
+        String sql = "SELECT ff.idfone, ff.nrofonefornecedor, "
+                   + "       ddi.ddi, ddd.ddd "
+                   + "FROM fonefornecedor ff "
+                   + "JOIN ddifornecedor ddi ON ff.id_ddifornecedor = ddi.id_ddifornecedor "
+                   + "JOIN dddfornecedor ddd ON ff.id_dddfornecedor = ddd.id_dddfornecedor "
+                   + "WHERE ff.idfornecedor = ?";
+
+        try (PreparedStatement ps = conn.prepareStatement(sql)) {
+            ps.setInt(1, idFornecedor);
+            ResultSet rs = ps.executeQuery();
+
+            while (rs.next()) {
+                FoneFornecedor fone = new FoneFornecedor();
+                fone.setIdFone(rs.getInt("idfone"));
+                // Podemos setar o valor do telefone completo concatenando DDI + DDD + Número
+                String ddi = rs.getString("ddi");
+                String ddd = rs.getString("ddd");
+                String numero = rs.getString("nrofonefornecedor");
+                fone.setNroFoneFornecedor(ddi + " (" + ddd + ") " + numero);
+                
+                listaFones.add(fone);
+            }
+        } catch (SQLException e) {
+            e.printStackTrace();
+        }
+
+        return listaFones;
+    }
+}

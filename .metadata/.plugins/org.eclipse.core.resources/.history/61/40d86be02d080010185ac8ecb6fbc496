@@ -1,0 +1,46 @@
+package app;
+
+import java.sql.Connection;
+import java.sql.DriverManager;
+import java.sql.SQLException;
+import java.util.Scanner;
+
+public class Login {
+
+    // URL de conexão (a mesma utilizada na sua classe PostgresDatabaseConnection)
+    private static final String URL = "jdbc:postgresql://localhost:5432/trabbd2";
+
+    /**
+     * Solicita ao usuário o login e a senha e tenta estabelecer uma conexão.
+     * Retorna a conexão se bem-sucedida, ou null em caso de falha.
+     */
+    public static Connection fazerLogin() {
+        Scanner sc = new Scanner(System.in);
+        System.out.print("Digite o usuário: ");
+        String user = sc.nextLine();
+        System.out.print("Digite a senha: ");
+        String password = sc.nextLine();
+        
+        try {
+            Connection conn = DriverManager.getConnection(URL, user, password);
+            System.out.println("Conectado com sucesso!");
+            return conn;
+        } catch (SQLException e) {
+            System.err.println("Falha ao conectar ao banco de dados: " + e.getMessage());
+            return null;
+        }
+    }
+
+    // Método main para testar o login
+    public static void main(String[] args) {
+        Connection conn = fazerLogin();
+        if (conn != null) {
+            try {
+                conn.close();
+                System.out.println("Conexão encerrada.");
+            } catch (SQLException e) {
+                System.err.println("Erro ao fechar a conexão: " + e.getMessage());
+            }
+        }
+    }
+}

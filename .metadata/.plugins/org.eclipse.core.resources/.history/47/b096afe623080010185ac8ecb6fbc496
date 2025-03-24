@@ -1,0 +1,37 @@
+package services;
+
+import database.PostgresDatabaseConnection;
+import models.Logradouro;
+
+import java.sql.Connection;
+import java.sql.PreparedStatement;
+import java.sql.ResultSet;
+import java.sql.SQLException;
+
+public class LogradouroService {
+
+    /**
+     * Cadastra um novo logradouro e retorna o ID gerado.
+     * Supõe que o objeto Logradouro possui um TipoLogradouro já definido.
+     */
+    public int cadastrarLogradouro(Logradouro logradouro) throws SQLException {
+        String sql = "INSERT INTO Logradouro (NomeLogradouro, IdTipoLogradouro) VALUES (?, ?)";
+        try (Connection conn = PostgresDatabaseConnection.getConnection();
+             PreparedStatement ps = conn.prepareStatement(sql, PreparedStatement.RETURN_GENERATED_KEYS)) {
+
+            ps.setString(1, logradouro.getNomeLogradouro());
+            ps.setInt(2, logradouro.getTipoLogradouro().getIdTipoLogradouro());
+            ps.executeUpdate();
+
+            try (ResultSet rs = ps.getGeneratedKeys()) {
+                if (rs.next()) {
+                    int idLogradouro = rs.getInt(1);
+                    logradouro.setIdLogradouro(idLogradouro);
+                    return idLogradouro;
+                } else {
+                    throw new SQLException("Erro ao cadastrar logradouro: não foi possível recuperar o ID.");
+                }
+            }
+        }
+    }
+}

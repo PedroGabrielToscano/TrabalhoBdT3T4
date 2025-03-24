@@ -1,0 +1,39 @@
+package services;
+
+import database.PostgresDatabaseConnection;
+import models.Cidade;
+
+import java.sql.Connection;
+import java.sql.PreparedStatement;
+import java.sql.ResultSet;
+import java.sql.SQLException;
+
+public class CidadeService {
+
+    /**
+     * Cadastra uma nova cidade e retorna o ID gerado.
+     * Supõe que o objeto Cidade possui uma UnidadeFederacao já definida.
+     */
+    public int cadastrarCidade(Cidade cidade) throws SQLException {
+        String sql = "INSERT INTO Cidade (IdUF, NomeCidade) VALUES (?, ?)";
+        try (Connection conn = PostgresDatabaseConnection.getConnection();
+             PreparedStatement ps = conn.prepareStatement(sql, PreparedStatement.RETURN_GENERATED_KEYS)) {
+
+            // Assume que a cidade possui um objeto UnidadeFederacao com o id definido.
+            ps.setInt(1, cidade.getUnidadeFederacao().getIdUF());
+            ps.setString(2, cidade.getNomeCidade());
+
+            ps.executeUpdate();
+
+            try (ResultSet rs = ps.getGeneratedKeys()) {
+                if (rs.next()) {
+                    int idCidade = rs.getInt(1);
+                    cidade.setIdCidade(idCidade);
+                    return idCidade;
+                } else {
+                    throw new SQLException("Erro ao cadastrar cidade: não foi possível recuperar o ID.");
+                }
+            }
+        }
+    }
+}

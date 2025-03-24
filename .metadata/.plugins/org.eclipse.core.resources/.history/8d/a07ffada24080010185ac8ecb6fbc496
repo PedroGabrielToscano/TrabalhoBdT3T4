@@ -1,0 +1,61 @@
+package app;
+
+import models.Bairro;
+import models.Cidade;
+import models.Endereco;
+import models.EnderecoEspecifico;
+import models.Fornecedor;
+import models.FoneFornecedor;
+import models.Logradouro;
+import models.MotivoFatura;
+import models.TipoLogradouro;
+import models.EmailFornecedor;
+import models.Fatura;
+import services.BairroService;
+import services.CidadeService;
+import services.EnderecoService;
+import services.FaturaService;
+import services.FornecedorService;
+import services.LogradouroService;
+
+import java.sql.SQLException;
+import java.time.LocalDate;
+import java.time.format.DateTimeFormatter;
+import java.util.List;
+import java.util.Scanner;
+
+public class Main {
+    public static void main(String[] args) {
+        Scanner sc = new Scanner(System.in);
+        FaturaService faturaService = new FaturaService();
+        FornecedorService fornecedorService = new FornecedorService();
+        EnderecoService enderecoService = new EnderecoService();
+        CidadeService cidadeService = new CidadeService();
+        BairroService bairroService = new BairroService();
+        LogradouroService logradouroService = new LogradouroService();
+        
+        boolean executar = true;
+        while (executar) {
+            System.out.println("\n=== MENU PRINCIPAL ===");
+            System.out.println("1. Consultar Fornecedores e Faturas");
+            System.out.println("2. Inserir nova fatura");
+            System.out.println("3. Cadastrar Fornecedor");
+            System.out.println("4. Sair");
+            System.out.print("Escolha uma opção: ");
+            int opcao = sc.nextInt();
+            sc.nextLine(); // Consumir a quebra de linha
+
+            switch (opcao) {
+                case 1:
+                    // Consulta de fornecedores e faturas
+                    List<Fornecedor> fornecedores = fornecedorService.listarFornecedoresComContatos();
+                    if (fornecedores.isEmpty()) {
+                        System.out.println("Nenhum fornecedor cadastrado.");
+                        break;
+                    }
+                    System.out.println("\n=== LISTA DE FORNECEDORES ===");
+                    for (Fornecedor f : fornecedores) {
+                        System.out.println("ID " + f.getIdFornecedor() + " = " + f.getNome());
+                    }
+                    System.out.print("\nDigite o ID do fornecedor para ver os detalhes das faturas: ");
+                    int idEscolhido = sc.nextInt();

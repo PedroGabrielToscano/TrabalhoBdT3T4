@@ -1,0 +1,138 @@
+package app;
+
+import model.Fatura;
+import model.Fornecedor;
+import services.FaturaService;
+import services.FornecedorService;
+
+import java.time.format.DateTimeFormatter;
+import java.util.List;
+import java.util.Scanner;
+
+public class Main {
+
+    public static void main(String[] args) {
+        // Scanner para leitura de entrada do usuário
+        Scanner sc = new Scanner(System.in);
+
+        // Instanciamos os serviços
+        FornecedorService fornecedorService = new FornecedorService();
+        FaturaService faturaService = new FaturaService();
+
+        boolean executar = true;
+
+        do {
+            System.out.println("\n=== MENU PRINCIPAL ===");
+            System.out.println("1. Pesquisar Fornecedores e Faturas");
+            System.out.println("2. Sair");
+            System.out.print("Escolha uma opção: ");
+
+            int opcao = sc.nextInt();
+            sc.nextLine(); // Consumir a quebra de linha pendente
+
+            switch (opcao) {
+                case 1:
+                    // 1) Listar fornecedores
+                    List<Fornecedor> fornecedores = fornecedorService.listarFornecedoresComContatos();
+
+                    if (fornecedores.isEmpty()) {
+                        System.out.println("Não há fornecedores cadastrados.");
+                        break;
+                    }
+
+                    System.out.println("\n=== LISTA DE FORNECEDORES ===");
+                    for (Fornecedor f : fornecedores) {
+                        System.out.println("ID: " + f.getIdFornecedor()
+                                + " | Nome: " + f.getNome()
+                                + " | CNPJ: " + f.getCnpj()
+                                + " | Saldo a Pagar: R$ " + f.getSaldoAPagar());
+                    }
+
+                    // 2) Escolher um fornecedor para ver detalhes
+                    System.out.print("\nDigite o ID do fornecedor para ver os detalhes das faturas: ");
+                    int idEscolhido = sc.nextInt();
+                    sc.nextLine(); // Consumir quebra de linha
+
+                    // Procurar fornecedor selecionado na lista (poderia também fazer nova consulta ao DB)
+                    Fornecedor fornecedorSelecionado = null;
+                    for (Fornecedor f : fornecedores) {
+                        if (f.getIdFornecedor() == idEscolhido) {
+                            fornecedorSelecionado = f;
+                            break;
+                        }
+                    }
+
+                    if (fornecedorSelecionado != null) {
+                        // Exibe informações do fornecedor
+                        System.out.println("\nFornecedor: " + fornecedorSelecionado.getNome()
+                                + " (CNPJ: " + fornecedorSelecionado.getCnpj() + ")");
+                        
+                        // Exibir emails
+                        if (fornecedorSelecionado.getListaEmails() != null
+                                && !fornecedorSelecionado.getListaEmails().isEmpty()) {
+                            System.out.println("Emails:");
+                            fornecedorSelecionado.getListaEmails().forEach(email ->
+                                    System.out.println("  - " + email.getEmailFornecedor())
+                            );
+                        }
+
+                        // Exibir fones
+                        if (fornecedorSelecionado.getListaFones() != null
+                                && !fornecedorSelecionado.getListaFones().isEmpty()) {
+                            System.out.println("Fones:");
+                            fornecedorSelecionado.getListaFones().forEach(fone ->
+                                    System.out.println("  - " + fone.getNroFoneFornecedor())
+                            );
+                        }
+
+                        System.out.println("Saldo a pagar: R$ " + fornecedorSelecionado.getSaldoAPagar());
+
+                        // 3) Buscar faturas desse fornecedor
+                        List<Fatura> faturas = faturaService.listarFaturasPorFornecedor(fornecedorSelecionado.getIdFornecedor());
+                        if (faturas.isEmpty()) {
+                            System.out.println("\nEsse fornecedor não possui faturas cadastradas.");
+                        } else {
+                            System.out.println("\nNro. Fatura | Motivo Fatura           | Vencimento  | Valor   | Saldo");
+                            System.out.println("---------------------------------------------------------------");
+
+                            double saldoAcumulado = 0;
+                            DateTimeFormatter formatter = DateTimeFormatter.ofPattern("dd/MM/yyyy");
+
+                            for (Fatura fat : faturas) {
+                                saldoAcumulado += fat.getValorFatura(); // Somatório
+                                String dtVenc = fat.getDtVencimento().format(formatter);
+                                System.out.printf("%-12d | %-24s | %-11s | %-7.2f | %-7.2f%n",
+                                        fat.getIdFatura(),
+                                        fat.getMotivoFatura().getMotivo(),
+                                        dtVenc,
+                                        fat.getValorFatura(),
+                                        saldoAcumulado
+                                );
+                            }
+                        }
+                    } else {
+                        System.out.println("Fornecedor não encontrado!");
+                    }
+
+                    // Pergunta se deseja continuar
+                    System.out.print("\nDeseja continuar? (S/N): ");
+                    String resposta = sc.nextLine();
+                    if (resposta.equalsIgnoreCase("N")) {
+                        executar = false;
+                    }
+                    break;
+
+                case 2:
+                    executar = false;
+                    break;
+
+                default:
+                    System.out.println("Opção inválida!");
+            }
+
+        } while (executar);
+
+        System.out.println("Programa encerrado.");
+        sc.close();
+    }
+}

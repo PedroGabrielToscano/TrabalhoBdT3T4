@@ -1,0 +1,448 @@
+package app;
+
+import database.PostgresDatabaseConnection;
+import models.Bairro;
+import models.Cidade;
+import models.DDDFornecedor;
+import models.DDIFornecedor;
+import models.EmailFornecedor;
+import models.Endereco;
+import models.EnderecoEspecifico;
+import models.Fatura;
+import models.Fornecedor;
+import models.FoneFornecedor;
+import models.Logradouro;
+import models.MotivoFatura;
+import models.TipoLogradouro;
+import models.UnidadeFederacao;
+import services.BairroService;
+import services.CidadeService;
+import services.DDDFornecedorService;
+import services.DDIFornecedorService;
+import services.EnderecoService;
+import services.FaturaService;
+import services.FornecedorService;
+import services.LogradouroService;
+import services.TipoLogradouroService;
+import services.UnidadeFederacaoService;
+
+import java.sql.SQLException;
+import java.time.LocalDate;
+import java.time.format.DateTimeFormatter;
+import java.util.List;
+import java.util.Scanner;
+
+public class Main {
+    public static void main(String[] args) throws SQLException {
+        Scanner sc = new Scanner(System.in);
+
+        // --- Etapa de Login ---
+        System.out.println("=== LOGIN NO BANCO DE DADOS ===");
+        System.out.print("Digite o usuário: ");
+        String user = sc.nextLine();
+        System.out.print("Digite a senha: ");
+        String password = sc.nextLine();
+        // Configura as credenciais dinamicamente
+        PostgresDatabaseConnection.setCredentials(user, password);
+
+        // Serviços para fornecedores e faturas
+        FaturaService faturaService = new FaturaService();
+        FornecedorService fornecedorService = new FornecedorService();
+
+        // Serviços para cadastro de endereço
+        EnderecoService enderecoService = new EnderecoService();
+        CidadeService cidadeService = new CidadeService();
+        BairroService bairroService = new BairroService();
+        LogradouroService logradouroService = new LogradouroService();
+        UnidadeFederacaoService ufService = new UnidadeFederacaoService();
+        TipoLogradouroService tipoLogService = new TipoLogradouroService();
+
+        // Serviços para DDI e DDD (pré-cadastrados)
+        DDIFornecedorService ddiService = new DDIFornecedorService();
+        DDDFornecedorService dddService = new DDDFornecedorService();
+
+        boolean executar = true;
+        while (executar) {
+            System.out.println("\n=== MENU PRINCIPAL ===");
+            System.out.println("1. Consultar Fornecedores e Faturas");
+            System.out.println("2. Inserir nova fatura");
+            System.out.println("3. Cadastrar Fornecedor");
+            System.out.println("4. Sair");
+            System.out.print("Escolha uma opção: ");
+            int opcao = sc.nextInt();
+            sc.nextLine(); // Consumir a quebra de linha
+
+            switch (opcao) {
+                case 1:
+                    // Consulta de fornecedores e faturas
+                    List<Fornecedor> listaFornecedores = fornecedorService.listarFornecedoresComContatos();
+                    if (listaFornecedores.isEmpty()) {
+                        System.out.println("Nenhum fornecedor cadastrado.");
+                        break;
+                    }
+                    System.out.println("\n=== LISTA DE FORNECEDORES ===");
+                    for (Fornecedor f : listaFornecedores) {
+                        System.out.println("ID " + f.getIdFornecedor() + " = " + f.getNome());
+                    }
+                    System.out.print("\nDigite o ID do fornecedor para ver os detalhes das faturas: ");
+                    int idEscolhido = sc.nextInt();
+                    sc.nextLine();
+                    Fornecedor fornecedorSelecionado = null;
+                    for (Fornecedor f : listaFornecedores) {
+                        if (f.getIdFornecedor() == idEscolhido) {
+                            fornecedorSelecionado = f;
+                            break;
+                        }
+                    }
+                    if (fornecedorSelecionado == null) {
+                        System.out.println("Fornecedor não encontrado!");
+                        break;
+                    }
+                    System.out.println("\nFornecedor: " + fornecedorSelecionado.getNome()
+                            + " (CNPJ: " + fornecedorSelecionado.getCnpj() + ")");
+
+                    // Exibir endereço completo, se disponível
+                    Endereco end = fornecedorSelecionado.getEndereco();
+                    if (end != null) {
+                        String enderecoStr = "CEP: " + end.getCep();
+                        if (end.getLogradouro() != null) {
+                            enderecoStr += ", " + end.getLogradouro().getNomeLogradouro();
+                        }
+                        if (end.getBairro() != null) {
+                            enderecoStr += ", Bairro: " + end.getBairro().getNomeBairro();
+                        }
+                        if (end.getCidade() != null) {
+                            enderecoStr += ", Cidade: " + end.getCidade().getNomeCidade();
+                        }
+                        System.out.println("Endereço: " + enderecoStr);
+                    } else {
+                        System.out.println("Endereço: Não cadastrado.");
+                    }
+                    // Exibir o endereço específico, se existir
+                    if (fornecedorSelecionado.getEnderecoEspecifico() != null) {
+                        System.out.println("Endereço Específico: Nº " +
+                                fornecedorSelecionado.getEnderecoEspecifico().getNumeroEnd() +
+                                ", " + fornecedorSelecionado.getEnderecoEspecifico().getComplemento());
+                    }
+                    
+                    if (fornecedorSelecionado.getListaEmails() != null && !fornecedorSelecionado.getListaEmails().isEmpty()) {
+                        System.out.println("Emails:");
+                        for (EmailFornecedor email : fornecedorSelecionado.getListaEmails()) {
+                            System.out.println("  - " + email.getEmailFornecedor());
+                        }
+                    }
+                    if (fornecedorSelecionado.getListaFones() != null && !fornecedorSelecionado.getListaFones().isEmpty()) {
+                        System.out.println("Fones:");
+                        for (FoneFornecedor fone : fornecedorSelecionado.getListaFones()) {
+                            System.out.println("  - " + fone.getNroFoneFornecedor());
+                        }
+                    }
+                    System.out.println("Saldo a pagar: R$ " + fornecedorSelecionado.getSaldoAPagar());
+                    
+                    List<Fatura> faturas = faturaService.listarFaturasPorFornecedor(fornecedorSelecionado.getIdFornecedor());
+                    if (faturas.isEmpty()) {
+                        System.out.println("\nEsse fornecedor não possui faturas cadastradas.");
+                    } else {
+                        double saldoAcumulado = 0;
+                        DateTimeFormatter formatter = DateTimeFormatter.ofPattern("dd/MM/yyyy");
+                        System.out.println("\nNro. Fatura | Motivo Fatura           | Vencimento  | Valor   | Saldo");
+                        System.out.println("---------------------------------------------------------------");
+                        for (Fatura fat : faturas) {
+                            saldoAcumulado += fat.getValorFatura();
+                            System.out.printf("%-12d | %-24s | %-11s | %-7.2f | %-7.2f%n",
+                                    fat.getIdFatura(),
+                                    fat.getMotivoFatura().getMotivo(),
+                                    fat.getDtVencimento().format(formatter),
+                                    fat.getValorFatura(),
+                                    saldoAcumulado);
+                        }
+                    }
+                    break;
+
+                case 2:
+                    // Inserção de nova fatura
+                    List<Fornecedor> listaForn = fornecedorService.listarFornecedoresComContatos();
+                    if (listaForn.isEmpty()) {
+                        System.out.println("Nenhum fornecedor cadastrado.");
+                        break;
+                    }
+                    System.out.println("\n=== FORNECEDORES ===");
+                    for (Fornecedor f : listaForn) {
+                        System.out.println("ID " + f.getIdFornecedor() + " = " + f.getNome());
+                    }
+                    System.out.print("\nDigite o ID do fornecedor para inserir a fatura: ");
+                    int idForn = sc.nextInt();
+                    sc.nextLine();
+                    Fornecedor fornEscolhido = null;
+                    for (Fornecedor f : listaForn) {
+                        if (f.getIdFornecedor() == idForn) {
+                            fornEscolhido = f;
+                            break;
+                        }
+                    }
+                    if (fornEscolhido == null) {
+                        System.out.println("Fornecedor não encontrado!");
+                        break;
+                    }
+                    System.out.println("\n=== MOTIVOS DE FATURA ===");
+                    System.out.println("ID 1 = Compra de insumos");
+                    System.out.println("ID 2 = Serviços terceirizados");
+                    System.out.print("\nDigite o ID do motivo da fatura: ");
+                    int idMotivo = sc.nextInt();
+                    sc.nextLine();
+                    System.out.print("Informe o valor da fatura: ");
+                    double valorFatura = sc.nextDouble();
+                    sc.nextLine();
+                    System.out.print("Informe a data de vencimento da fatura (dd/MM/yyyy): ");
+                    String dtVencStr = sc.nextLine();
+                    DateTimeFormatter formatterF = DateTimeFormatter.ofPattern("dd/MM/yyyy");
+                    LocalDate dtVencimento = LocalDate.parse(dtVencStr, formatterF);
+                    LocalDate dtLancamento = LocalDate.now();
+
+                    Fatura novaFatura = new Fatura();
+                    novaFatura.setFornecedor(fornEscolhido);
+                    novaFatura.setValorFatura(valorFatura);
+                    MotivoFatura motivo = new MotivoFatura();
+                    motivo.setIdMotivo(idMotivo);
+                    if (idMotivo == 1) {
+                        motivo.setMotivo("Compra de insumos");
+                    } else if (idMotivo == 2) {
+                        motivo.setMotivo("Serviços terceirizados");
+                    } else {
+                        motivo.setMotivo("Outro");
+                    }
+                    novaFatura.setMotivoFatura(motivo);
+                    novaFatura.setDtLancamento(dtLancamento);
+                    novaFatura.setDtVencimento(dtVencimento);
+
+                    try {
+                        faturaService.inserirFatura(novaFatura);
+                        System.out.println("Fatura inserida com sucesso!");
+                    } catch (SQLException e) {
+                        System.err.println("Erro ao inserir a fatura: " + e.getMessage());
+                    }
+                    break;
+
+                case 3:
+                    // Cadastro de Fornecedor
+                    System.out.println("\n=== CADASTRAR FORNECEDOR ===");
+                    System.out.print("Digite o CNPJ do fornecedor: ");
+                    String cnpj = sc.nextLine();
+                    System.out.print("Digite o nome do fornecedor: ");
+                    String nomeFornecedor = sc.nextLine();
+                    
+                    // Solicitar email e telefone
+                    System.out.print("Digite o email do fornecedor: ");
+                    String email = sc.nextLine();
+                    System.out.print("Digite o número do telefone do fornecedor: ");
+                    String telefone = sc.nextLine();
+                    
+                    // Listar DDD pré-cadastrados e escolher
+                    System.out.println("\n=== DDD PRE-CADASTRADOS ===");
+                    List<DDDFornecedor> listaDDD = null;
+                    try {
+                        listaDDD = dddService.listarDDD();
+                    } catch (SQLException ex) {
+                        System.err.println("Erro ao listar DDD: " + ex.getMessage());
+                        break;
+                    }
+                    if (listaDDD.isEmpty()) {
+                        System.out.println("Nenhum DDD cadastrado.");
+                        break;
+                    }
+                    for (DDDFornecedor ddd : listaDDD) {
+                        System.out.println("ID " + ddd.getIdDDDFornecedor() + " = " + ddd.getDdd());
+                    }
+                    System.out.print("Digite o ID do DDD desejado: ");
+                    int idDDD = sc.nextInt();
+                    sc.nextLine();
+                    
+                    // Listar DDI pré-cadastrados e escolher
+                    System.out.println("\n=== DDI PRE-CADASTRADOS ===");
+                    List<DDIFornecedor> listaDDI = null;
+                    try {
+                        listaDDI = ddiService.listarDDI();
+                    } catch (SQLException ex) {
+                        System.err.println("Erro ao listar DDI: " + ex.getMessage());
+                        break;
+                    }
+                    if (listaDDI.isEmpty()) {
+                        System.out.println("Nenhum DDI cadastrado.");
+                        break;
+                    }
+                    for (DDIFornecedor ddi : listaDDI) {
+                        System.out.println("ID " + ddi.getIdDDIFornecedor() + " = " + ddi.getDdi());
+                    }
+                    System.out.print("Digite o ID do DDI desejado: ");
+                    int idDDI = sc.nextInt();
+                    sc.nextLine();
+                    
+                    System.out.println("Escolha a opção para o endereço:");
+                    System.out.println("1 - Usar endereço já cadastrado");
+                    System.out.println("2 - Cadastrar novo endereço");
+                    int opcaoEndereco = sc.nextInt();
+                    sc.nextLine();
+                    Endereco enderecoFornecedor = new Endereco();
+                    if (opcaoEndereco == 1) {
+                        System.out.print("Digite o ID do endereço já cadastrado: ");
+                        int idEnderecoExistente = sc.nextInt();
+                        sc.nextLine();
+                        enderecoFornecedor.setIdEndereco(idEnderecoExistente);
+                    } else {
+                        // Cadastro de novo endereço
+                        // Listar UF pré-cadastradas
+                        System.out.println("\n=== UNIDADES FEDERATIVAS ===");
+                        List<UnidadeFederacao> listaUF = ufService.listarUFs();
+                        if (listaUF.isEmpty()) {
+                            System.out.println("Não há UF pré-cadastradas.");
+                            break;
+                        }
+                        for (UnidadeFederacao uf : listaUF) {
+                            System.out.println("ID " + uf.getIdUF() + " = " + uf.getNome());
+                        }
+                        System.out.print("Digite o ID da UF para a nova Cidade: ");
+                        int idUFEscolhido = sc.nextInt();
+                        sc.nextLine();
+
+                        // Cadastrar nova Cidade
+                        System.out.print("Digite o nome da nova Cidade: ");
+                        String nomeCidade = sc.nextLine();
+                        UnidadeFederacao ufObj = new UnidadeFederacao();
+                        ufObj.setIdUF(idUFEscolhido);
+                        Cidade cidade = new Cidade();
+                        cidade.setNomeCidade(nomeCidade);
+                        cidade.setUnidadeFederacao(ufObj);
+                        int idCidade = 0;
+                        try {
+                            idCidade = cidadeService.cadastrarCidade(cidade);
+                            System.out.println("Cidade cadastrada com ID = " + idCidade);
+                        } catch (SQLException e) {
+                            System.err.println("Erro ao cadastrar cidade: " + e.getMessage());
+                            break;
+                        }
+
+                        // Cadastrar novo Bairro
+                        System.out.print("Digite o nome do novo Bairro: ");
+                        String nomeBairro = sc.nextLine();
+                        Bairro bairro = new Bairro();
+                        bairro.setNomeBairro(nomeBairro);
+                        int idBairro = 0;
+                        try {
+                            idBairro = bairroService.cadastrarBairro(bairro);
+                            System.out.println("Bairro cadastrado com ID = " + idBairro);
+                        } catch (SQLException e) {
+                            System.err.println("Erro ao cadastrar bairro: " + e.getMessage());
+                            break;
+                        }
+
+                        // Listar Tipo de Logradouro pré-cadastrado
+                        System.out.println("\n=== TIPOS DE LOGRADOURO ===");
+                        List<TipoLogradouro> listaTipos = tipoLogService.listarTipoLogradouros();
+                        if (listaTipos.isEmpty()) {
+                            System.out.println("Não há tipos de logradouro pré-cadastrados.");
+                            break;
+                        }
+                        for (TipoLogradouro tipo : listaTipos) {
+                            System.out.println("ID " + tipo.getIdTipoLogradouro() + " = " + tipo.getNomeTipoLogradouro());
+                        }
+                        System.out.print("Digite o ID do Tipo de Logradouro: ");
+                        int idTipoLogEscolhido = sc.nextInt();
+                        sc.nextLine();
+
+                        // Cadastrar novo Logradouro
+                        System.out.print("Digite o nome do novo Logradouro: ");
+                        String nomeLogradouro = sc.nextLine();
+                        TipoLogradouro tipoLog = new TipoLogradouro();
+                        tipoLog.setIdTipoLogradouro(idTipoLogEscolhido);
+                        Logradouro logradouro = new Logradouro();
+                        logradouro.setNomeLogradouro(nomeLogradouro);
+                        logradouro.setTipoLogradouro(tipoLog);
+                        int idLogradouro = 0;
+                        try {
+                            idLogradouro = logradouroService.cadastrarLogradouro(logradouro);
+                            System.out.println("Logradouro cadastrado com ID = " + idLogradouro);
+                        } catch (SQLException e) {
+                            System.err.println("Erro ao cadastrar logradouro: " + e.getMessage());
+                            break;
+                        }
+
+                        // Cadastrar Endereço
+                        System.out.print("Digite o CEP (apenas números): ");
+                        int cep = sc.nextInt();
+                        sc.nextLine();
+                        Endereco novoEnd = new Endereco();
+                        novoEnd.setCep(cep);
+                        Cidade cidObj = new Cidade();
+                        cidObj.setIdCidade(idCidade);
+                        Bairro bairroObj = new Bairro();
+                        bairroObj.setIdBairro(idBairro);
+                        Logradouro logObj = new Logradouro();
+                        logObj.setIdLogradouro(idLogradouro);
+                        novoEnd.setCidade(cidObj);
+                        novoEnd.setBairro(bairroObj);
+                        novoEnd.setLogradouro(logObj);
+                        int idEnderecoGerado = 0;
+                        try {
+                            idEnderecoGerado = enderecoService.cadastrarEndereco(novoEnd);
+                            System.out.println("Endereço cadastrado com sucesso! ID = " + idEnderecoGerado);
+                        } catch (SQLException e) {
+                            System.err.println("Erro ao cadastrar endereço: " + e.getMessage());
+                            break;
+                        }
+                        enderecoFornecedor.setIdEndereco(idEnderecoGerado);
+                    }
+
+                    // Cadastro do Endereço Específico para o fornecedor
+                    System.out.print("Digite o número do endereço específico: ");
+                    int numeroEnd = sc.nextInt();
+                    sc.nextLine();
+                    System.out.print("Digite o complemento do endereço específico: ");
+                    String complemento = sc.nextLine();
+
+                    Fornecedor novoFornecedor = new Fornecedor();
+                    novoFornecedor.setCnpj(cnpj);
+                    novoFornecedor.setNome(nomeFornecedor);
+                    novoFornecedor.setEndereco(enderecoFornecedor);
+                    novoFornecedor.setSaldoAPagar(0.0);
+                    EnderecoEspecifico endEsp = new EnderecoEspecifico();
+                    endEsp.setNumeroEnd(numeroEnd);
+                    endEsp.setComplemento(complemento);
+                    novoFornecedor.setEnderecoEspecifico(endEsp);
+
+                    try {
+                        fornecedorService.cadastrarFornecedor(novoFornecedor);
+                        System.out.println("Fornecedor cadastrado com sucesso! ID gerado: " + novoFornecedor.getIdFornecedor());
+                        
+                        // Após cadastrar o fornecedor, cadastrar email e telefone
+                        try {
+                            fornecedorService.cadastrarEmailFornecedor(novoFornecedor, email);
+                            fornecedorService.cadastrarFoneFornecedor(novoFornecedor, idDDI, idDDD, telefone);
+                            System.out.println("Email e telefone cadastrados com sucesso!");
+                        } catch (SQLException ex) {
+                            System.err.println("Erro ao cadastrar email ou telefone: " + ex.getMessage());
+                        }
+                    } catch (SQLException e) {
+                        System.err.println("Erro ao cadastrar fornecedor: " + e.getMessage());
+                    }
+                    break;
+
+                case 4:
+                    executar = false;
+                    System.out.println("Programa encerrado.");
+                    break;
+
+                default:
+                    System.out.println("Opção inválida!");
+            }
+            if (executar) {
+                System.out.print("\nDeseja retornar ao menu principal? (S/N): ");
+                String op = sc.nextLine();
+                if (op.equalsIgnoreCase("N")) {
+                    executar = false;
+                    System.out.println("Programa encerrado.");
+                }
+            }
+        }
+        sc.close();
+    }
+}

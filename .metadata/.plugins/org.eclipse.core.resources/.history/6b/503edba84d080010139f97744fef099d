@@ -1,0 +1,51 @@
+package transacao;
+
+import dao.FaturaDAO;
+import dao.FornecedorDAO;
+import models.Fatura;
+import models.Fornecedor;
+import models.MotivoFatura;
+import java.sql.Connection;
+import java.sql.SQLException;
+import java.time.LocalDate;
+import java.math.BigDecimal;
+
+public class TransacaoOK {
+    public static void executarTransacaoOK(Connection conn) throws Exception {
+        conn.setAutoCommit(false);
+        // Instancia os DAOs com a conexão passada
+        FaturaDAO faturaDAO = new FaturaDAO(conn);
+        FornecedorDAO fornecedorDAO = new FornecedorDAO(conn);
+        
+        try {
+            // INSERT em fatura
+            Fatura fatura = new Fatura();
+            fatura.setDtLancamento(LocalDate.now());
+            fatura.setDtVencimento(LocalDate.now().plusDays(30));
+            fatura.setValorFatura(1000.00);
+            // Se usar BigDecimal:
+            // fatura.setValorTotal(new BigDecimal("1000.00"));
+            // fatura.setSaldo(new BigDecimal("1000.00"));
+            
+            Fornecedor fornecedor = new Fornecedor();
+            fornecedor.setIdFornecedor(1); // utilize um ID válido
+            fatura.setFornecedor(fornecedor);
+            
+            MotivoFatura motivo = new MotivoFatura();
+            // Use o método conforme o seu modelo; aqui, setIdMotivo é usado como exemplo.
+            motivo.setIdMotivo(1);
+            fatura.setMotivoFatura(motivo);
+            
+            faturaDAO.inserirFatura(fatura);
+            
+            // UPDATE em fornecedor
+            fornecedorDAO.atualizarNomeFornecedor(fornecedor.getIdFornecedor(), "Fornecedor Atualizado - OK", conn);
+            
+            conn.commit();
+            System.out.println("Transação OK concluída com sucesso!");
+        } catch (Exception e) {
+            conn.rollback();
+            throw new Exception("Erro na transação OK: " + e.getMessage(), e);
+        }
+    }
+}
